@@ -1,8 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 
-// Node.js runtime con maxDuration para superar el límite de 30s de Edge
-export const maxDuration = 60; // hasta 60s en Hobby, 300s en Pro
+// Edge runtime: streaming nativo, sin limite de servidor
+export const runtime = "edge";
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -20,45 +20,38 @@ function jsonError(message: string, status: number) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => null);
-    if (!body) return jsonError("Solicitud inválida.", 400);
+    if (!body) return jsonError("Solicitud invalida.", 400);
 
     const { idea } = body;
 
     if (!idea || idea.trim() === "") {
-      return jsonError("Falta la descripción de la idea.", 400);
+      return jsonError("Falta la descripcion de la idea.", 400);
     }
 
     if (idea.length > MAX_IDEA_LENGTH) {
-      return jsonError(`La descripción no puede superar los ${MAX_IDEA_LENGTH} caracteres.`, 400);
+      return jsonError("La descripcion no puede superar los " + MAX_IDEA_LENGTH + " caracteres.", 400);
     }
 
-    // Sanitize: strip any attempt to break out of the prompt
     const sanitizedIdea = idea.replace(/`/g, "'").trim();
+
+    const prompt =
+      "Sos un generador de paginas web. Crea una pagina HTML completa y funcional para: " +
+      JSON.stringify(sanitizedIdea) +
+      "\n\nREGLAS ESTRICTAS:\n" +
+      "- Un solo archivo HTML con CSS y JS inline\n" +
+      "- Diseno moderno, colores atractivos, responsive\n" +
+      "- Contenido de ejemplo realista en espanol\n" +
+      "- CSS MUY CONCISO: usa variables CSS, sin comentarios\n" +
+      "- SIN comentarios en HTML ni CSS\n" +
+      "- Todos los tags cerrados correctamente incluyendo </body> y </html>\n" +
+      "- Navegacion interna con href='#seccion' (no URLs relativas)\n" +
+      "- SOLO codigo HTML puro comenzando con <!DOCTYPE html>, sin markdown ni explicaciones";
 
     const stream = await client.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 4096,
+      max_tokens: 2500,
       stream: true,
-      messages: [
-        {
-          role: "user",
-          content: `Sos un generador de páginas web. El usuario describió lo que quiere crear:
-
-"${sanitizedIdea}"
-
-Generá una página web HTML completa, moderna y profesional que cumpla con esa descripción.
-Requisitos:
-- Todo en un solo archivo HTML (CSS y JS incluidos inline)
-- Diseño moderno, con colores atractivos y tipografía limpia
-- Responsive (que se vea bien en celular y computadora)
-- Contenido de ejemplo realista en español
-- CSS conciso: usá variables CSS y evitá repetición innecesaria
-- NO incluyas comentarios en el CSS ni HTML
-- IMPORTANTE: El archivo debe estar completo. Asegurate de cerrar todos los tags, incluyendo </body> y </html>
-- Para la navegación entre secciones, usá siempre links ancla (href="#seccion") en lugar de URLs relativas (/pagina). La página se mostrará en un iframe de vista previa.
-- NO incluyas explicaciones ni markdown, solo el código HTML puro comenzando con <!DOCTYPE html>`,
-        },
-      ],
+      messages: [{ role: "user", content: prompt }],
     });
 
     const readable = new ReadableStream({
@@ -88,6 +81,6 @@ Requisitos:
   } catch (error: unknown) {
     const err = error as { message?: string; status?: number };
     console.error("Error al generar:", error);
-    return jsonError(`Error: ${err?.message || "Desconocido"}`, err?.status || 500);
+    return jsonError("Error: " + (err?.message || "Desconocido"), err?.status || 500);
   }
 }
