@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -10,12 +10,16 @@ export async function POST(req: NextRequest) {
     const { idea } = await req.json();
 
     if (!idea || idea.trim() === "") {
-      return NextResponse.json({ error: "Falta la descripción de la idea." }, { status: 400 });
+      return new Response(JSON.stringify({ error: "Falta la descripción de la idea." }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
-    const message = await client.messages.create({
-      model: "claude-opus-4-6",
+    const stream = await client.messages.create({
+      model: "claude-sonnet-4-6",
       max_tokens: 8096,
+      stream: true,
       messages: [
         {
           role: "user",
@@ -38,16 +42,35 @@ Requisitos:
       ],
     });
 
-    const html = (message.content[0] as { type: string; text: string }).text;
+    const readable = new ReadableStream({
+      async start(controller) {
+        try {
+          for await (const chunk of stream) {
+            if (
+              chunk.type === "content_block_delta" &&
+              chunk.delta.type === "text_delta"
+            ) {
+              controller.enqueue(new TextEncoder().encode(chunk.delta.text));
+            }
+          }
+        } finally {
+          controller.close();
+        }
+      },
+    });
 
-    const cleanHtml = html.replace(/^```html\n?/, "").replace(/\n?```$/, "").trim();
-
-    return NextResponse.json({ html: cleanHtml });
+    return new Response(readable, {
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
   } catch (error: unknown) {
     const err = error as { message?: string; status?: number };
     console.error("Error al generar:", error);
-    return NextResponse.json({
-      error: `Error: ${err?.message || "Desconocido"}`
-    }, { status: 500 });
+    return new Response(
+      JSON.stringify({ error: `Error: ${err?.message || "Desconocido"}` }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
   }
 }
