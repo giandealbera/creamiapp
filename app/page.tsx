@@ -39,11 +39,14 @@ export default function Home() {
   const generar = useCallback(async () => {
     if (!idea.trim() || loading) return;
 
-    // Cancel any in-flight request
-    abortRef.current?.abort();
+    // Create a fresh controller for this request
     const controller = new AbortController();
     abortRef.current = controller;
-    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    let timedOut = false;
+    const timeoutId = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, TIMEOUT_MS);
 
     setLoading(true);
     setError("");
@@ -72,7 +75,6 @@ export default function Home() {
 
       while (true) {
         const { done, value } = await reader.read();
-        // Flush remaining bytes on last chunk
         accumulated += decoder.decode(value ?? new Uint8Array(), { stream: !done });
         if (done) break;
         setStreamingCode(accumulated);
@@ -96,8 +98,11 @@ export default function Home() {
       setGeneratedHtml(fixedHtml);
     } catch (err) {
       setStreamingCode("");
-      if ((err as Error).name === "AbortError") {
-        setError("La generación tardó demasiado o fue cancelada. Intentá de nuevo.");
+      const isAbort = (err as Error).name === "AbortError";
+      if (isAbort && timedOut) {
+        setError("La generación tardó demasiado. Intentá con una descripción más corta.");
+      } else if (isAbort) {
+        // User clicked Cancel — don't show an error
       } else {
         setError("Hubo un problema de conexión. Intentá de nuevo.");
       }
