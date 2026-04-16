@@ -1,31 +1,14 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 
-// Tell Vercel to allow up to 60 seconds for this function
-export const maxDuration = 60;
+// Edge runtime: no timeout limits, native streaming support
+export const runtime = "edge";
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
 const MAX_IDEA_LENGTH = 2000;
-
-// Simple in-memory rate limiting (resets on cold start)
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT = 10; // requests per window
-const RATE_WINDOW_MS = 60 * 60 * 1000; // 1 hour
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const entry = rateLimitMap.get(ip);
-  if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
-    return true;
-  }
-  if (entry.count >= RATE_LIMIT) return false;
-  entry.count++;
-  return true;
-}
 
 function jsonError(message: string, status: number) {
   return new Response(JSON.stringify({ error: message }), {
@@ -35,16 +18,6 @@ function jsonError(message: string, status: number) {
 }
 
 export async function POST(req: NextRequest) {
-  // Rate limiting
-  const ip =
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    req.headers.get("x-real-ip") ||
-    "unknown";
-
-  if (!checkRateLimit(ip)) {
-    return jsonError("Límite de generaciones alcanzado. Intentá de nuevo en una hora.", 429);
-  }
-
   try {
     const body = await req.json().catch(() => null);
     if (!body) return jsonError("Solicitud inválida.", 400);
