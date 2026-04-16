@@ -32,6 +32,7 @@ Requisitos:
 - CSS conciso: usá variables CSS y evitá repetición innecesaria
 - NO incluyas comentarios en el CSS ni HTML
 - IMPORTANTE: El archivo debe estar completo. Asegurate de cerrar todos los tags, incluyendo </body> y </html>
+- Para la navegación entre secciones, usá siempre links ancla (href="#seccion") en lugar de URLs relativas (/pagina). La página se mostrará en un iframe de vista previa.
 - NO incluyas explicaciones ni markdown, solo el código HTML puro comenzando con <!DOCTYPE html>`,
         },
       ],
@@ -39,7 +40,6 @@ Requisitos:
 
     const html = (message.content[0] as { type: string; text: string }).text;
 
-    // Limpiar por si Claude agregó markdown
     const cleanHtml = html.replace(/^```html\n?/, "").replace(/\n?```$/, "").trim();
 
     return NextResponse.json({ html: cleanHtml });
