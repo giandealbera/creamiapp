@@ -1,8 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 
-// Edge runtime: no timeout limits, native streaming support
-export const runtime = "edge";
+// Node.js runtime con maxDuration para superar el límite de 30s de Edge
+export const maxDuration = 60; // hasta 60s en Hobby, 300s en Pro
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
 
     const stream = await client.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 8096,
+      max_tokens: 4096,
       stream: true,
       messages: [
         {
