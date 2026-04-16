@@ -35,21 +35,20 @@ export async function POST(req: NextRequest) {
     const sanitizedIdea = idea.replace(/`/g, "'").trim();
 
     const prompt =
-      "Sos un generador de paginas web. Crea una pagina HTML completa y funcional para: " +
+      "Genera una pagina HTML completa y autocontenida para: " +
       JSON.stringify(sanitizedIdea) +
-      "\n\nREGLAS ESTRICTAS:\n" +
-      "- Un solo archivo HTML con CSS y JS inline\n" +
-      "- Diseno moderno, colores atractivos, responsive\n" +
+      "\n\nREGLAS:\n" +
+      "- Solo HTML con CSS y JS inline, sin dependencias externas\n" +
+      "- CSS ultra-compacto usando variables CSS, SIN comentarios\n" +
+      "- SIN comentarios en ningun lado\n" +
+      "- Diseno moderno, colores atractivos, mobile-first\n" +
       "- Contenido de ejemplo realista en espanol\n" +
-      "- CSS MUY CONCISO: usa variables CSS, sin comentarios\n" +
-      "- SIN comentarios en HTML ni CSS\n" +
-      "- Todos los tags cerrados correctamente incluyendo </body> y </html>\n" +
-      "- Navegacion interna con href='#seccion' (no URLs relativas)\n" +
-      "- SOLO codigo HTML puro comenzando con <!DOCTYPE html>, sin markdown ni explicaciones";
+      "- Navegacion con href='#id' solamente\n" +
+      "- Responde SOLO con el codigo HTML comenzando con <!DOCTYPE html>";
 
     const stream = await client.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 2500,
+      max_tokens: 1200,
       stream: true,
       messages: [{ role: "user", content: prompt }],
     });
