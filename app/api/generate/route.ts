@@ -31,7 +31,6 @@ export async function POST(req: NextRequest) {
     if (idea.length > MAX_IDEA_LENGTH) {
       return jsonError("La descripcion no puede superar los " + MAX_IDEA_LENGTH + " caracteres.", 400);
     }
-
     const sanitizedIdea = idea.replace(/`/g, "'").trim();
 
     const prompt =
@@ -77,4 +76,11 @@ export async function POST(req: NextRequest) {
         "Content-Type": "text/plain; charset=utf-8",
         "X-Content-Type-Options": "nosniff",
         "Cache-Control": "no-store",
- 
+      },
+    });
+  } catch (error: unknown) {
+    const err = error as { message?: string; status?: number };
+    console.error("Error al generar:", error);
+    return jsonError("Error: " + (err?.message || "Desconocido"), err?.status || 500);
+  }
+}
