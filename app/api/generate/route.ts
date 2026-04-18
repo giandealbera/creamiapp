@@ -43,37 +43,57 @@ export async function POST(req: NextRequest) {
         {
           role: "user",
           content:
-            "Genera el contenido HTML del body para una pagina web en espanol sobre: " +
+            "Genera el contenido HTML para una pagina web en espanol sobre: " +
             JSON.stringify(sanitizedIdea) +
-            "\nReglas:\n" +
-            "- Escribe SOLO el contenido del body (SIN DOCTYPE, html, head ni style)\n" +
+            "\nREGLAS ESTRICTAS:\n" +
+            "- Tu respuesta debe comenzar DIRECTAMENTE con <nav (sin DOCTYPE, sin html, sin head, sin style)\n" +
             "- Usa etiquetas estandar: nav, header, section, footer, h1, h2, h3, p, ul, li, table, form\n" +
             "- Para cards: <div class='cards'><div class='card'><div class='icon'>EMOJI</div><h3>Titulo</h3><p>Texto</p></div></div>\n" +
             "- Contenido abundante, real y especifico al tema en espanol\n" +
-            "- Termina siempre con </body></html>",
-        },
-        {
-          role: "assistant",
-          content: HTML_SKELETON,
+            "- Termina con </body></html>\n" +
+            "- EMPIEZA YA con <nav, no escribas nada antes",
         },
       ],
     });
 
     const skeletonBytes = new TextEncoder().encode(HTML_SKELETON);
-
     const readable = new ReadableStream({
       async start(controller) {
-        // Send pre-defined skeleton first (CSS already included, no tokens wasted)
+        // Send pre-defined skeleton first
         controller.enqueue(skeletonBytes);
+        // Stream Claude body content, stripping any HTML preamble Claude might add
+        let preambleDone = false;
+        let buf = "";
         try {
           for await (const chunk of stream) {
             if (
               chunk.type === "content_block_delta" &&
               chunk.delta.type === "text_delta"
             ) {
-              controller.enqueue(new TextEncoder().encode(chunk.delta.text));
+              const text = chunk.delta.text;
+              if (preambleDone) {
+                controller.enqueue(new TextEncoder().encode(text));
+              } else {
+                buf += text;
+                const bodyIdx = buf.search(/<body[^>]*>/i);
+                if (bodyIdx !== -1) {
+                  const afterBody = buf.replace(/^[\s\S]*?<body[^>]*>/i, "");
+                  if (afterBody) controller.enqueue(new TextEncoder().encode(afterBody));
+                  preambleDone = true;
+                  buf = "";
+                } else if (buf.search(/^\s*<(nav|header|section|main|div|article)/i) !== -1) {
+                  controller.enqueue(new TextEncoder().encode(buf));
+                  preambleDone = true;
+                  buf = "";
+                } else if (buf.length > 1500) {
+                  controller.enqueue(new TextEncoder().encode(buf));
+                  preambleDone = true;
+                  buf = "";
+                }
+              }
             }
           }
+          if (buf) controller.enqueue(new TextEncoder().encode(buf));
         } finally {
           controller.close();
         }
