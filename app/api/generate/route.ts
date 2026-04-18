@@ -35,20 +35,22 @@ export async function POST(req: NextRequest) {
     const sanitizedIdea = idea.replace(/`/g, "'").trim();
 
     const prompt =
-      "Genera una pagina HTML completa y autocontenida para: " +
+      "Genera una pagina HTML completa para: " +
       JSON.stringify(sanitizedIdea) +
-      "\n\nREGLAS:\n" +
-      "- Solo HTML con CSS y JS inline, sin dependencias externas\n" +
-      "- CSS ultra-compacto usando variables CSS, SIN comentarios\n" +
-      "- SIN comentarios en ningun lado\n" +
-      "- Diseno moderno, colores atractivos, mobile-first\n" +
-      "- Contenido de ejemplo realista en espanol\n" +
-      "- Navegacion con href='#id' solamente\n" +
-      "- Responde SOLO con el codigo HTML comenzando con <!DOCTYPE html>";
+      "\n\nREGLAS ESTRICTAS:\n" +
+      "- Un solo archivo HTML con todo inline\n" +
+      "- Usa UN bloque <style> MUY CORTO (maximo 30 lineas de CSS), sin comentarios\n" +
+      "- El CSS debe ser minimalista: solo colores de fondo, fuente, padding basico\n" +
+      "- Todo el contenido visible debe estar en el <body> con texto real en espanol\n" +
+      "- Diseno moderno con colores atractivos\n" +
+      "- Navegacion con href='#id' solamente, sin JS complejo\n" +
+      "- Contenido de ejemplo realista y abundante (titulos, parrafos, listas)\n" +
+      "- IMPORTANTE: el HTML debe estar 100% completo, con </html> al final\n" +
+      "- Responde SOLO con el codigo comenzando exactamente con <!DOCTYPE html>";
 
     const stream = await client.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 1200,
+      max_tokens: 1600,
       stream: true,
       messages: [{ role: "user", content: prompt }],
     });
@@ -75,11 +77,4 @@ export async function POST(req: NextRequest) {
         "Content-Type": "text/plain; charset=utf-8",
         "X-Content-Type-Options": "nosniff",
         "Cache-Control": "no-store",
-      },
-    });
-  } catch (error: unknown) {
-    const err = error as { message?: string; status?: number };
-    console.error("Error al generar:", error);
-    return jsonError("Error: " + (err?.message || "Desconocido"), err?.status || 500);
-  }
-}
+ 
